@@ -1,0 +1,86 @@
+---
+- name: Download ALC Assets
+  hosts: darwin
+  connection: local
+  vars_files: defaults/main.yaml
+  vars:
+    pathlink: '{{ nextlink | urlsplit("path") }}'
+    destlink: '{{ VAULT }}'
+    downlink: '{{ nextlink | urlsplit("hostname") }}{{ pathlink }}{{ file }}'
+  gather_facts: false
+  ignore_errors: true
+  tasks:
+    - name: Grab the latest set of Excel files
+      tags: update
+      block:
+        - name: Create the Directory
+          ansible.builtin.file:
+            path: '{{ VAULT }}/spreadsheets/{{ dir }}'
+            state: directory
+            mode: '0755'
+
+        - name: Download ALC spreadsheets
+          ansible.builtin.get_url:
+            url: '{{ excel }}'
+            dest: '{{ VAULT }}/spreadsheets/{{ dir }}'
+            mode: '0644'
+
+    - name: Discover what needs to be downloaded
+      tags: discover
+      block:
+        - name: Refresh the sot file
+          ansible.builtin.script:
+            cmd: xbc.py
+
+        - name: Coallate with current sot file
+          ansible.builtin.script:
+            cmd: compile.rb
+
+        - name: Document missing and located files
+          ansible.builtin.script:
+            cmd: exists.rb {{ VAULT }} {{ URL }}
+
+        - name: Filter out missing files that exist elsewhere
+          ansible.builtin.script:
+            cmd: proof.rb
+
+    - name: Download the missing assets
+      tags: download
+      block:
+        - name: Create Missing Directories
+          ansible.builtin.file:
+            path: '{{ destlink }}{{ pathlink }}'
+            state: directory
+            mode: '0755'
+
+        - name: Download ALC Files
+          ansible.builtin.get_url:
+            url: '{{ SHORT }}{{ downlink }}'
+            dest: '{{ destlink }}{{ pathlink }}'
+            mode: '0644'
+          register: result
+
+        - name: Record Successful Downloads
+          ansible.builtin.lineinfile:
+            path: ./results/succeeded.txt
+            line: '{{ URL }}{{ pathlink }}{{ file | trim }}'
+            create: true
+            mode: '0644'
+          when: result is succeeded
+
+        - name: Record Failed Downloads
+          ansible.builtin.lineinfile:
+            path: ./results/failed.txt
+            line: '{{ URL }}{{ pathlink }}{{ file | trim }}'
+            create: true
+            mode: '0644'
+          when: result is failed
+    
+    - name: Remove unnecessary files
+      tags: clean
+      block:
+        - name: Delete extra text files
+          ansible.builtin.command: rm {{ TEMPORARY }}beta.txt {{ TEMPORARY }}draft.txt {{ TEMPORARY }}lost.txt {{ TEMPORARY }}possible.txt
+          register: scrap
+          changed_when: scrap.rc != 0
+...
