@@ -53,4 +53,4 @@ PLAY RECAP *********************************************************************
 
 ## License
 
-Code is distributed under [The Unlicense](https://github.com/farghul/free/blob/main/LICENSE.md) and is part of the Public Domain.
+Code is distributed under [The Unlicense](https://github.com/farghul/alc/blob/main/LICENSE.md) and is part of the Public Domain.
